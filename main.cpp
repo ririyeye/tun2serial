@@ -4,12 +4,11 @@
 #include <unistd.h>
 #include <thread>
 #include "serial.h"
-#include "libserialport.h"
 #include <string.h>
 using namespace std;
 
 
-void tun2serial(int tunfd, sp_port * serialport)
+void tun2serial(int tunfd, int serfd)
 {
 	unsigned char inBuffer[2048];
 	unsigned char outBuffer[4096];
@@ -20,28 +19,21 @@ void tun2serial(int tunfd, sp_port * serialport)
 	// Encoded data size
 	unsigned long encodedLength = 0;
 
-	// Serial error messages
-	enum sp_return serialResult;
-
 	while (1) {
 		count = read(tunfd, inBuffer, sizeof(inBuffer));
-		if (count < 0) {
+		if (count > 0) {
 			fprintf(stderr, "Could not read from interface\n");
-		}
 
-		// Encode data
-		encodedLength = serialEncode(inBuffer, count, outBuffer, sizeof(outBuffer));
+			encodedLength = serialEncode(inBuffer, count, outBuffer, sizeof(outBuffer));
 
-		// Write to serial port
-		serialResult = sp_nonblocking_write(serialport, outBuffer, encodedLength);
-		if (serialResult < 0) {
-			fprintf(stderr, "Could not send data to serial port: %d\n", serialResult);
+			write(serfd, outBuffer, encodedLength);
 		}
 	}
 }
 
-void serial2tun(sp_port* serialport, int tunfd)
+void serial2tun(int serfd, int tunfd)
 {
+
 
 
 
@@ -71,7 +63,7 @@ int main(int argc, char* argv[])
 		exit(0);
 	}
 	
-	auto  serial = init_serial(serialName, 115200);
+	int  serial = UARTX_Init(serialName, 115200, 0 ,8 , 1 , 0);
 
 	if (!serial) {
 		printf("serial port %s init error \n", serialName);

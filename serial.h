@@ -2,8 +2,7 @@
 #define __serial_h___
 
 
-#include "libserialport.h"
-sp_port * init_serial(char* serialPortName, int serialBaudRate);
+int UARTX_Init(char* portName, int baudrate, int fctl, int databit, int stopbit, int parity);
 int serialEncode(unsigned char* srcbuff, unsigned int srclen, unsigned char* dstbuff, int dstlen);
 
 
