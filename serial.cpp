@@ -188,15 +188,3 @@ int UARTX_Init(char* portName, int baudrate, int fctl, int databit, int stopbit,
 
 
 
-int serialEncode(unsigned char* srcbuff, unsigned int srclen, unsigned char* dstbuff, int MaxDstLen)
-{
-	dstbuff[0] = 0x02;
-	dstbuff[1] = srclen & 0xff;
-	dstbuff[2] = (srclen >> 8) & 0xff;
-	memcpy(&dstbuff[3], srcbuff, srclen);
-	dstbuff[3 + srclen] = 0x01;
-
-	return srclen + 3;
-}
-
-

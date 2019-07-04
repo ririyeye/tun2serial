@@ -5,6 +5,7 @@
 #include <thread>
 #include "serial.h"
 #include <string.h>
+#include "serial_protol.h"
 using namespace std;
 
 
@@ -24,7 +25,15 @@ void tun2serial(int tunfd, int serfd)
 		if (count > 0) {
 			fprintf(stderr, "Could not read from interface\n");
 
-			encodedLength = serialEncode(inBuffer, count, outBuffer, sizeof(outBuffer));
+			ser_data src;
+			src.len = count;
+			src.buff = inBuffer;
+
+			ser_data dst;
+			dst.len = sizeof(outBuffer);
+			dst.buff = outBuffer;
+
+			encodedLength = serialEncode(&src, &dst);
 
 			write(serfd, outBuffer, encodedLength);
 		}
