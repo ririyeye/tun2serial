@@ -9,7 +9,8 @@ CXXFLAG = -std=c++11
 
 all:tunserial
 
-
+test:test.cpp serial_protol.o
+	$(CXX) $^ -o $@ $(CXXFLAG) $(LDFLAG)
 
 tunserial:main.cpp serial.o tundev.o serial_protol.o
 	$(CXX) $^ -o $@ $(CXXFLAG) $(LDFLAG)
