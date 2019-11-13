@@ -1,22 +1,20 @@
-#ifndef __serial_protol_h___
-#define __serial_protol_h___
+#ifndef __serial_protol_h_____
+#define __serial_protol_h_____
 
-
-#define HEAD_NUM (0x08) 
-#define TAIL_NUM (0x07)
+struct ser_data {
+	unsigned char * buff;
+	int len;
+};
 
 #ifdef __cplusplus 
 extern "C" {
 #endif
 
-struct ser_data{
-	unsigned char * buff;
-	int len;
-};
 
 
-int serialEncode(struct ser_data * src, struct ser_data * dst);
-int serialFindDecode(struct ser_data * src , struct ser_data * dst);
+
+	int serialEncode(struct ser_data * src, struct ser_data * dst, int seq);
+	int serialFindDecode(struct ser_data * src, struct ser_data * dst, int dstsz);
 
 
 #ifdef __cplusplus 

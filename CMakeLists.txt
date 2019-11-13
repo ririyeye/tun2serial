@@ -17,7 +17,7 @@ include_directories(${PROJECT_SOURCE_DIR})
 
 
 #主目录编译文件
-add_executable(serial2tun main.cpp serial.cpp tundev.cpp)
+add_executable(serial2tun main.cpp serial.cpp tundev.cpp serial_protol.cpp)
 
 
 target_link_libraries(serial2tun pthread)
