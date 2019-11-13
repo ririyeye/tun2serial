@@ -17,7 +17,10 @@ include_directories(${PROJECT_SOURCE_DIR})
 
 
 #主目录编译文件
-add_executable(main test.cpp)
+add_executable(serial2tun main.cpp serial.cpp tundev.cpp)
+
+
+target_link_libraries(serial2tun pthread)
 
 #imageProcess
 #add_subdirectory(imageProcess)

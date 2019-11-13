@@ -3,3 +3,5 @@ SET(CMAKE_C_COMPILER arm-linux-gnueabi-gcc)
 SET(CMAKE_CXX_COMPILER arm-linux-gnueabi-g++)
 
 add_definitions(-mcpu=arm926ej-s -mno-unaligned-access -fno-aggressive-loop-optimizations -fno-omit-frame-pointer -mapcs -rdynamic)
+
+add_definitions(-Dtip="192.168.0.10")

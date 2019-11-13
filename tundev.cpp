@@ -6,48 +6,87 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include "tundev.h"
+#include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <linux/if_tun.h>
+#include <netinet/in.h>
+#include <netinet/ip_icmp.h>
+#include <sys/ioctl.h>
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 
-
-int tun_alloc(char * dev)
+int sethostaddr(const char* dev)
 {
-	// Interface request structure
 	struct ifreq ifr;
+	bzero(&ifr, sizeof(ifr));
+	strcpy(ifr.ifr_name, dev);
+	struct sockaddr_in addr;
+	bzero(&addr, sizeof addr);
+	addr.sin_family = AF_INET;
+	inet_pton(AF_INET, tip, &addr.sin_addr);
+	//addr.sin_addr.s_addr = htonl(0xc0a80001);
+	bcopy(&addr, &ifr.ifr_addr, sizeof addr);
+	int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sockfd < 0)
+		return sockfd;
+	int err = 0;
+	// ifconfig tun0 192.168.0.1
+	if ((err = ioctl(sockfd, SIOCSIFADDR, (void *)&ifr)) < 0) {
+		perror("ioctl SIOCSIFADDR");
+		goto done;
+	}
+	// ifup tun0 其实就是启动tun0
+	if ((err = ioctl(sockfd, SIOCGIFFLAGS, (void *)&ifr)) < 0) {
+		perror("ioctl SIOCGIFFLAGS");
+		goto done;
+	}
+	ifr.ifr_flags |= IFF_UP;
+	if ((err = ioctl(sockfd, SIOCSIFFLAGS, (void *)&ifr)) < 0) {
+		perror("ioctl SIOCSIFFLAGS");
+		goto done;
+	}
+	// ifconfig tun0 192.168.0.1/24 # 配置子网掩码
+	inet_pton(AF_INET, "255.255.255.0", &addr.sin_addr);
+	bcopy(&addr, &ifr.ifr_netmask, sizeof addr);
+	if ((err = ioctl(sockfd, SIOCSIFNETMASK, (void *)&ifr)) < 0) {
+		perror("ioctl SIOCSIFNETMASK");
+		goto done;
+	}
+done:
+	close(sockfd);
+	return err;
+}
 
-	// File descriptor
-	int fileDescriptor;
+int tun_alloc(char dev[IFNAMSIZ])
+{
+	struct ifreq ifr;
+	int fd, err;
 
-	// Open the tun device, if it doesn't exists return the error
-	const char* cloneDevice = "/dev/net/tun";
-	if ((fileDescriptor = open(cloneDevice, O_RDWR)) < 0) {
-		perror("open /dev/net/tun");
-		return fileDescriptor;
+	if ((fd = open("/dev/net/tun", O_RDWR)) < 0) {
+		perror("open");
+		return -1;
 	}
 
-	// Initialize the ifreq structure with 0s and the set flags
-	memset(&ifr, 0, sizeof(ifr));
-	ifr.ifr_flags = IFF_TUN;
+	bzero(&ifr, sizeof(ifr));
+	ifr.ifr_flags = IFF_TUN | IFF_NO_PI; // tun设备不包含以太网头部,而tap包含,仅此而已
 
-	// If a device name is passed we should add it to the ifreq struct
-	// Otherwise the kernel will try to allocate the next available
-	// device of the given type
 	if (*dev) {
 		strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 	}
 
-	// Ask the kernel to create the new device
-	int err = ioctl(fileDescriptor, TUNSETIFF, (void*)& ifr);
-	if (err < 0) {
-		// If something went wrong close the file and return
+	if ((err = ioctl(fd, TUNSETIFF, (void *)&ifr)) < 0) {
 		perror("ioctl TUNSETIFF");
-		close(fileDescriptor);
+		close(fd);
 		return err;
 	}
-
-	// Write the device name back to the dev variable so the caller
-	// can access it
 	strcpy(dev, ifr.ifr_name);
+	if ((err = sethostaddr(dev)) < 0) // 设定地址等信息
+		return err;
 
-	// Return the file descriptor
-	return fileDescriptor;
+	return fd;
 }

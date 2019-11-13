@@ -11,42 +11,34 @@ using namespace std;
 
 void tun2serial(int tunfd, int serfd)
 {
-	unsigned char inBuffer[2048];
-	unsigned char outBuffer[4096];
-
-	// Incoming byte count
-	ssize_t count;
-
-	// Encoded data size
-	unsigned long encodedLength = 0;
-
+	fprintf(stderr, "tun thread\n");
+	unsigned char inBuffer[4096];
 	while (1) {
-		count = read(tunfd, inBuffer, sizeof(inBuffer));
+		int count = read(tunfd, inBuffer, sizeof(inBuffer));
 		if (count > 0) {
-			fprintf(stderr, "Could not read from interface\n");
-
-			ser_data src;
-			src.len = count;
-			src.buff = inBuffer;
-
-			ser_data dst;
-			dst.len = sizeof(outBuffer);
-			dst.buff = outBuffer;
-
-			encodedLength = serialEncode(&src, &dst);
-
-			write(serfd, outBuffer, encodedLength);
+			fprintf(stderr, "tun read num = %d\n", count);
+			int writelen = write(serfd, inBuffer, count);
+		} else {
+			fprintf(stderr, "tun error = %d\n", count);
 		}
 	}
 }
 
 void serial2tun(int serfd, int tunfd)
 {
-
-
-
-
-
+	fprintf(stderr, "serial thread\n");
+	unsigned char inBuffer[4096];
+	while (1) {
+		int count = read(serfd, inBuffer, sizeof(inBuffer));
+		if (count > 0) {
+			fprintf(stderr, "ser read num = %d\n", count);
+			int writelen = write(tunfd, inBuffer, count);
+		} else {
+			if (count != 0) {
+				fprintf(stderr, "ser error = %d\n", count);
+			}
+		}
+	}
 }
 
 
@@ -67,17 +59,18 @@ static char* ChkCmdVal(int argc, char* argv[], const char* cmd)
 int main(int argc, char* argv[])
 {
 	char* serialName = ChkCmdVal(argc, argv, "-s");
+
 	if (!serialName) {
 		printf("no serial port exit\n");
 		exit(0);
 	}
-	
-	int  serial = UARTX_Init(serialName, 115200, 0 ,8 , 1 , 0);
 
-	if (!serial) {
+	int  serial = UARTX_Init(serialName, 115200, 0, 8, 1, 0);
+
+	if (serial < 0) {
 		printf("serial port %s init error \n", serialName);
 	} else {
-		printf("serial port %s init success \n", serialName);
+		printf("serial port %s init success ,fd = %d\n", serialName, serial);
 	}
 
 	char tunname[128] = "test_tun";
