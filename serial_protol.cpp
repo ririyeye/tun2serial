@@ -82,11 +82,13 @@ int serialFindDecode(struct ser_data * src, struct ser_data * dst, int dstsz)
 	for (int i = 0; i < num;) {
 		int remainLen = num - i;
 		if ((rxbuf[i] == 0XAA) && (rxbuf[i + 1] == 0XAA)) {
-			if (remainLen > 20) {
+			
+			if (remainLen >=8) {
 				int recpackLen = rxbuf[i + 4] << 8 | rxbuf[i + 5];
 				if (remainLen <= recpackLen) {
+					
 					if (crc_check(recpackLen, &(*(rxbuf + i)), 0XFFFF, NULL) == 0) {
-
+						
 						memcpy(dst[checked_size].buff, &rxbuf[i + 6], recpackLen - 8);
 						dst[checked_size].len = recpackLen - 8;
 

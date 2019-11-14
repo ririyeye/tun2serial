@@ -36,6 +36,7 @@ void ReadTunThread(int tunfd)
 		if (count > 0) {
 			lock_guard<mutex> lck(mtx_list);
 			dateList.emplace_back(make_shared<datanode>(inBuffer, count));
+			//printf("tun read num = %d\n", count);
 		} else {
 			fprintf(stderr, "tun error = %d\n", count);
 		}
@@ -73,9 +74,10 @@ void MasterSerialThread(int serfd, int tunfd)
 		dst.len = sizeof(outbuff);
 		int len = serialEncode(&src, &dst, 0);
 		int writelen = write(serfd, outbuff, len);
+		//printf("send len = %d \n", writelen);
 		//master read
 		int readlen = read(serfd, inBuffer, sizeof(inBuffer));
-
+		
 		src.buff = inBuffer;
 		src.len = readlen;
 
@@ -83,7 +85,6 @@ void MasterSerialThread(int serfd, int tunfd)
 		dst.len = sizeof(outbuff);
 
 		int packcnt = serialFindDecode(&src, &dst, 1);
-
 		if (packcnt) {
 			tmp.reset();
 			write(tunfd, dst.buff, dst.len);
@@ -116,9 +117,14 @@ void SlaveSerialThread(int serfd, int tunfd)
 
 		int packcnt = serialFindDecode(&src, &dst, 1);
 
+
 		if (packcnt) {
 			tmp.reset();
 			write(tunfd, dst.buff, dst.len);
+			printf("get pack len = %d\n", dst.len);
+		} else {
+			continue;
+			printf("get null pack\n");
 		}
 
 		if (!tmp) {
@@ -129,20 +135,19 @@ void SlaveSerialThread(int serfd, int tunfd)
 			}
 		}
 		//slave send
-		
 		if (!tmp) {
 			src.buff = nullptr;
 			src.len = 0;
+
 		} else {
 			src.buff = tmp->buff;
 			src.len = tmp->len;
 		}
-		
 		dst.buff = outbuff;
 		dst.len = sizeof(outbuff);
 		int len = serialEncode(&src, &dst, 0);
 		int writelen = write(serfd, outbuff, len);
-
+		tmp.reset();
 	}
 }
 
@@ -271,6 +276,8 @@ int main(int argc, char* argv[])
 
 	printf("read dev name = %s\n", tunname);
 
+	thread thread_tun(ReadTunThread,tunfd);
+
 	if (masterFlag) {
 		thread thread_serial(MasterSerialThread, serial, tunfd);
 		thread_serial.detach();
@@ -281,7 +288,7 @@ int main(int argc, char* argv[])
 
 	//thread thread_tun(tun2serial, tunfd, serial);
 	//thread thread_serial(serial2tun, serial, tunfd);
-	printf("11111\n");
+	//printf("11111\n");
 	sleep(1000);
 }
 
