@@ -13,7 +13,7 @@ extern "C" {
 
 
 
-	int serialEncode(struct ser_data * src, struct ser_data * dst, int seq);
+	int serialEncode(struct ser_data * src, struct ser_data * dst, int seq , int srcsz);
 	int serialFindDecode(struct ser_data * src, struct ser_data * dst, int dstsz);
 
 

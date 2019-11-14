@@ -43,6 +43,37 @@ void ReadTunThread(int tunfd)
 	}
 }
 
+int sum_of_queue(list<shared_ptr< datanode>> & inqueue)
+{
+	int ret = 0;
+
+	for (auto & each : inqueue)
+	{
+		if (each) {
+			ret += each->len;
+		}
+	}
+	return ret;
+}
+
+void GetQueueData(list<shared_ptr< datanode>> & dstqueue, list<shared_ptr< datanode>> & srcqueue, int maxNum)
+{
+	int num = sum_of_queue(dstqueue);
+	while (num < maxNum) {
+		if (!srcqueue.empty()) {
+			int headlen = (*srcqueue.begin())->len;
+			if (headlen + num <= maxNum) {
+				dstqueue.emplace_back(std::move(*srcqueue.begin()));
+				srcqueue.erase(srcqueue.begin());
+			} else {
+				break;
+			}
+		} else {
+			break;
+		}
+	}
+}
+
 
 
 void MasterSerialThread(int serfd, int tunfd)
@@ -50,44 +81,49 @@ void MasterSerialThread(int serfd, int tunfd)
 	fprintf(stderr, "Master serial thread\n");
 	unsigned char inBuffer[4096];
 	unsigned char outbuff[4096];
-	shared_ptr<datanode> tmp;
+
+	list<shared_ptr< datanode>> sendqueue;
+
+	ser_data src[30];
+	int sendpack_cnt;
 	while (1) {
-		if (!tmp) 
 		{
 			lock_guard<mutex> lck(mtx_list);
-			if (!dateList.empty()) {
-				tmp = std::move(*dateList.begin());
-				dateList.erase(dateList.begin());
-			}
+			GetQueueData(sendqueue, dateList, 1500);
 		}
 		//master send
-		ser_data src;
-		if (!tmp) {
-			src.buff = nullptr;
-			src.len = 0;
+		int sendpack_cnt = 0;
+		if (sendqueue.empty()) {
+			src[0].buff = nullptr;
+			src[0].len = 0;
+
 		} else {
-			src.buff = tmp->buff;
-			src.len = tmp->len;
+			for (auto & each : sendqueue) {
+				if (each) {
+					src[sendpack_cnt].len = each->len;
+					src[sendpack_cnt].buff = each->buff;
+					sendpack_cnt++;
+				}
+			}
 		}
 		ser_data dst;
 		dst.buff = outbuff;
 		dst.len = sizeof(outbuff);
-		int len = serialEncode(&src, &dst, 0);
+		int len = serialEncode(src, &dst, 0, sendpack_cnt);
 		int writelen = write(serfd, outbuff, len);
-		//printf("send len = %d \n", writelen);
 		//master read
 		int readlen = read(serfd, inBuffer, sizeof(inBuffer));
-		
-		src.buff = inBuffer;
-		src.len = readlen;
+
+		src[0].buff = inBuffer;
+		src[0].len = readlen;
 
 		dst.buff = outbuff;
 		dst.len = sizeof(outbuff);
 
-		int packcnt = serialFindDecode(&src, &dst, 1);
+		int packcnt = serialFindDecode(src, &dst, 1);
 		if (packcnt) {
-			tmp.reset();
 			write(tunfd, dst.buff, dst.len);
+			sendqueue.clear();
 		}
 	}
 }
@@ -121,7 +157,7 @@ void SlaveSerialThread(int serfd, int tunfd)
 		if (packcnt) {
 			tmp.reset();
 			write(tunfd, dst.buff, dst.len);
-			printf("get pack len = %d\n", dst.len);
+			//printf("get pack len = %d\n", dst.len);
 		} else {
 			continue;
 			printf("get null pack\n");
@@ -145,7 +181,7 @@ void SlaveSerialThread(int serfd, int tunfd)
 		}
 		dst.buff = outbuff;
 		dst.len = sizeof(outbuff);
-		int len = serialEncode(&src, &dst, 0);
+		int len = serialEncode(&src, &dst, 0 , 1);
 		int writelen = write(serfd, outbuff, len);
 		tmp.reset();
 	}
@@ -169,7 +205,7 @@ void tun2serial(int tunfd, int serfd)
 			dst.buff = outBuffer;
 			dst.len = sizeof(outBuffer);
 
-			int len = serialEncode(&src, &dst, 0);
+			int len = serialEncode(&src, &dst, 0 , 1);
 
 			fprintf(stderr, "tun read num = %d , encode =%d\n", count, len);
 			int writelen = write(serfd, outBuffer, len);
@@ -257,7 +293,7 @@ int main(int argc, char* argv[])
 	}
 
 	int masterFlag = ChkifCMD(argc, argv, "-m");
-
+	int fullDuplexFlag = ChkifCMD(argc, argv, "-full");
 	int  serial = UARTX_Init(serialName, 115200, 0, 8, 1, 0);
 
 	if (serial < 0) {
@@ -276,19 +312,23 @@ int main(int argc, char* argv[])
 
 	printf("read dev name = %s\n", tunname);
 
-	thread thread_tun(ReadTunThread,tunfd);
-
-	if (masterFlag) {
-		thread thread_serial(MasterSerialThread, serial, tunfd);
+	if (fullDuplexFlag) {
+		printf("full duplex\n");
+		thread thread_tun(tun2serial, tunfd, serial);
+		thread_tun.detach();
+		thread thread_serial(serial2tun, serial, tunfd);
 		thread_serial.detach();
 	} else {
-		thread thread_serial(SlaveSerialThread, serial, tunfd);
-		thread_serial.detach();
+		thread thread_tun(ReadTunThread, tunfd);
+		thread_tun.detach();
+		if (masterFlag) {
+			thread thread_serial(MasterSerialThread, serial, tunfd);
+			thread_serial.detach();
+		} else {
+			thread thread_serial(SlaveSerialThread, serial, tunfd);
+			thread_serial.detach();
+		}
 	}
-
-	//thread thread_tun(tun2serial, tunfd, serial);
-	//thread thread_serial(serial2tun, serial, tunfd);
-	//printf("11111\n");
 	sleep(1000);
 }
 

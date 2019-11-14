@@ -51,19 +51,27 @@ static int crc_check(unsigned int len, unsigned char *Buff, unsigned int firstcr
 
 
 
-int serialEncode(struct ser_data * src, struct ser_data * dst, int seq)
+int serialEncode(struct ser_data * src, struct ser_data * dst, int seq, int src_cnt)
 {
 	dst->buff[0] = 0xaa;
 	dst->buff[1] = 0xaa;
 	dst->buff[2] = 1;
 	dst->buff[3] = seq;
 
-	int wrlen = 8 + src->len;
+	int wrlen = 8;
+	for (int i = 0; i < src_cnt; i++) {
+		wrlen += src[i].len;
+	}
 
 	dst->buff[4] = wrlen >> 8;
 	dst->buff[5] = wrlen & 0xff;
 
-	memcpy(&dst->buff[6], &src->buff[0], src->len);
+	int wrpos = 6;
+	for (int i = 0; i < src_cnt; i++) {
+		if (i) wrpos += src[i - 1].len;
+		memcpy(&dst->buff[wrpos], src[i].buff, src->len);
+	}
+
 
 	unsigned int mkcrc = crc_make(dst->buff, wrlen - 2, 0xffff);
 
