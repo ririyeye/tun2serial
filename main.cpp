@@ -196,7 +196,6 @@ void tun2serial(int tunfd, int serfd)
 	while (1) {
 		int count = read(tunfd, inBuffer, sizeof(inBuffer));
 		if (count > 0) {
-
 			ser_data src;
 			src.buff = inBuffer;
 			src.len = count;
@@ -207,8 +206,12 @@ void tun2serial(int tunfd, int serfd)
 
 			int len = serialEncode(&src, &dst, 0 , 1);
 
-			fprintf(stderr, "tun read num = %d , encode =%d\n", count, len);
+			//fprintf(stderr, "tun read num = %d , encode =%d\n", count, len);
 			int writelen = write(serfd, outBuffer, len);
+			if (writelen < 0) {
+				fprintf(stderr, "serfd error = %d\n", writelen);
+				exit(-10);
+			}
 		} else {
 			fprintf(stderr, "tun error = %d\n", count);
 		}
@@ -241,14 +244,10 @@ void serial2tun(int serfd, int tunfd)
 
 			int packcnt = serialFindDecode(&src, dst, 10);
 
-			fprintf(stderr, "ser read num = %d , pack cnt = %d\n", count, packcnt);
-
-			if (packcnt == 0) {
-				fprintf(stderr, "rec error pack\n");
-			}
+			//fprintf(stderr, "ser read num = %d , pack cnt = %d\n", count, packcnt);
 
 			for (int i = 0; i < packcnt; i++) {
-				fprintf(stderr, "pack len = %d\n", dst[i].len);
+				//fprintf(stderr, "pack len = %d\n", dst[i].len);
 				int writelen = write(tunfd, dst[i].buff, dst[i].len);
 			}
 
