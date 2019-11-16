@@ -5,6 +5,7 @@ cd arm
 cmake .. -Darch=arm 
 make -j8
 
+cp serial2tun /nucroot
 
 cd -
 mkdir x86

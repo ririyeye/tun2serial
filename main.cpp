@@ -328,7 +328,9 @@ int main(int argc, char* argv[])
 			thread_serial.detach();
 		}
 	}
-	sleep(1000);
+	while (true) {
+		sleep(1000);
+	}	
 }
 
 
