@@ -4,7 +4,7 @@
 
 
 
-int tun_alloc(char * dev);
+int tun_alloc(char * dev, char * localip, char * gateway);
 
 
 

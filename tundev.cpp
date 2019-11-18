@@ -21,7 +21,7 @@
 
 #include <net/route.h>
 
-int sethostaddr(const char* dev)
+int sethostaddr(const char* dev, const char * localip, const char * gateWay)
 {
 	struct ifreq ifr;
 	bzero(&ifr, sizeof(ifr));
@@ -29,64 +29,69 @@ int sethostaddr(const char* dev)
 	struct sockaddr_in addr;
 	bzero(&addr, sizeof addr);
 	addr.sin_family = AF_INET;
-	inet_pton(AF_INET, tip, &addr.sin_addr);
-	//addr.sin_addr.s_addr = htonl(0xc0a80001);
-	bcopy(&addr, &ifr.ifr_addr, sizeof addr);
+
+
 	int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd < 0)
 		return sockfd;
 	int err = 0;
-	// ifconfig tun0 192.168.0.1
-	if ((err = ioctl(sockfd, SIOCSIFADDR, (void *)&ifr)) < 0) {
-		perror("ioctl SIOCSIFADDR");
-		goto done;
-	}
-	// ifup tun0 其实就是启动tun0
-	if ((err = ioctl(sockfd, SIOCGIFFLAGS, (void *)&ifr)) < 0) {
-		perror("ioctl SIOCGIFFLAGS");
-		goto done;
-	}
-	ifr.ifr_flags |= IFF_UP;
-	if ((err = ioctl(sockfd, SIOCSIFFLAGS, (void *)&ifr)) < 0) {
-		perror("ioctl SIOCSIFFLAGS");
-		goto done;
-	}
-	// ifconfig tun0 192.168.0.1/24 # 配置子网掩码
-	inet_pton(AF_INET, "255.255.255.0", &addr.sin_addr);
-	bcopy(&addr, &ifr.ifr_netmask, sizeof addr);
-	if ((err = ioctl(sockfd, SIOCSIFNETMASK, (void *)&ifr)) < 0) {
-		perror("ioctl SIOCSIFNETMASK");
-		goto done;
+
+	if (localip) {
+		inet_pton(AF_INET, localip, &addr.sin_addr);
+		bcopy(&addr, &ifr.ifr_addr, sizeof addr);
+
+		// ifconfig tun0 192.168.0.1
+		if ((err = ioctl(sockfd, SIOCSIFADDR, (void *)&ifr)) < 0) {
+			perror("ioctl SIOCSIFADDR");
+			goto done;
+		}
+		// ifup tun0 其实就是启动tun0
+		if ((err = ioctl(sockfd, SIOCGIFFLAGS, (void *)&ifr)) < 0) {
+			perror("ioctl SIOCGIFFLAGS");
+			goto done;
+		}
+		ifr.ifr_flags |= IFF_UP;
+		if ((err = ioctl(sockfd, SIOCSIFFLAGS, (void *)&ifr)) < 0) {
+			perror("ioctl SIOCSIFFLAGS");
+			goto done;
+		}
+		// ifconfig tun0 192.168.0.1/24 # 配置子网掩码
+		inet_pton(AF_INET, "255.255.255.0", &addr.sin_addr);
+		bcopy(&addr, &ifr.ifr_netmask, sizeof addr);
+		if ((err = ioctl(sockfd, SIOCSIFNETMASK, (void *)&ifr)) < 0) {
+			perror("ioctl SIOCSIFNETMASK");
+			goto done;
+		}
 	}
 	//gateway
-#ifdef GateWay
-	struct rtentry  rt;
-	struct sockaddr_in sin; 
+	if (gateWay) {
 
-	memset(&rt, 0, sizeof(struct rtentry));
-	memset(&sin, 0, sizeof(struct sockaddr_in));
-	sin.sin_family = AF_INET;
-	sin.sin_port = 0;
-	if (inet_aton(GateWay, &sin.sin_addr) < 0) {
-		perror("inet_aton error\n");
-		goto done;
-	}
-	memcpy(&rt.rt_gateway, &sin, sizeof(struct sockaddr_in));
-	((struct sockaddr_in *)&rt.rt_dst)->sin_family = AF_INET;
-	((struct sockaddr_in *)&rt.rt_genmask)->sin_family = AF_INET;
-	rt.rt_flags = RTF_GATEWAY;
-	if (ioctl(sockfd, SIOCADDRT, &rt) < 0) {
-		perror("ioctl(SIOCADDRT) error in set_default_route\n");
-		goto done;
-	}
-#endif
+		struct rtentry  rt;
+		struct sockaddr_in sin;
 
+		memset(&rt, 0, sizeof(struct rtentry));
+		memset(&sin, 0, sizeof(struct sockaddr_in));
+		sin.sin_family = AF_INET;
+		sin.sin_port = 0;
+		if (inet_aton(gateWay, &sin.sin_addr) < 0) {
+			perror("inet_aton error\n");
+			goto done;
+		}
+		memcpy(&rt.rt_gateway, &sin, sizeof(struct sockaddr_in));
+		((struct sockaddr_in *)&rt.rt_dst)->sin_family = AF_INET;
+		((struct sockaddr_in *)&rt.rt_genmask)->sin_family = AF_INET;
+		rt.rt_flags = RTF_GATEWAY;
+		if ((err = ioctl(sockfd, SIOCADDRT, &rt)) < 0) {
+			perror("ioctl(SIOCADDRT) error in set_default_route\n");
+			goto done;
+		}
+	}
 done:
 	close(sockfd);
 	return err;
 }
 
-int tun_alloc(char dev[IFNAMSIZ])
+int tun_alloc(char dev[IFNAMSIZ], char * localip, char * gateway)
 {
 	struct ifreq ifr;
 	int fd, err;
@@ -109,7 +114,7 @@ int tun_alloc(char dev[IFNAMSIZ])
 		return err;
 	}
 	strcpy(dev, ifr.ifr_name);
-	if ((err = sethostaddr(dev)) < 0) // 设定地址等信息
+	if ((err = sethostaddr(dev, localip, gateway)) < 0) // 设定地址等信息
 		return err;
 
 	return fd;

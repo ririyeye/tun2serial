@@ -302,8 +302,13 @@ int main(int argc, char* argv[])
 		printf("serial port %s init success ,fd = %d\n", serialName, serial);
 	}
 
+	char * localIp = ChkCmdVal(argc, argv, "-ip");
+
+	char * localGateWay = ChkCmdVal(argc, argv, "-gateway");
+
+
 	char tunname[128] = "test_tun";
-	int tunfd = tun_alloc(tunname);
+	int tunfd = tun_alloc(tunname, localIp, localGateWay);
 	if (tunfd < 0) {
 		printf("tun alloc error = %d\n", tunfd);
 		return -3;
@@ -330,7 +335,7 @@ int main(int argc, char* argv[])
 	}
 	while (true) {
 		sleep(1000);
-	}	
+	}
 }
 
 
