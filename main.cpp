@@ -307,7 +307,8 @@ int main(int argc, char* argv[])
 	char * localGateWay = ChkCmdVal(argc, argv, "-gateway");
 
 
-	char tunname[128] = "test_tun";
+	char tunname[128] = "serial2tun%d";
+
 	int tunfd = tun_alloc(tunname, localIp, localGateWay);
 	if (tunfd < 0) {
 		printf("tun alloc error = %d\n", tunfd);
